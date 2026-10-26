@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sound Forge SFX</title>
+<style>
+:root{--bg:#0d0e12;--panel:#15171d;--panel2:#1c1f27;--line:#2a2e39;--text:#d9dce4;--dim:#878d9c;--accent:#8ef0c8}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:13px/1.3 "Segoe UI",system-ui,sans-serif;user-select:none}
+button{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 10px;cursor:pointer;white-space:nowrap}
+button:hover{border-color:#4c5263}
+button.on{background:#2f4a40;border-color:#5fbf98;color:#fff}
+button.big{background:var(--accent);color:#111;border:none;font-weight:600}
+select,input[type=number]{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:3px 4px}
+a{color:var(--accent)}
+header{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line)}
+.logo{width:32px;height:32px;border-radius:8px;background:var(--accent);color:#111;display:grid;place-items:center;font-weight:700;font-size:18px}
+.spacer{flex:1}
+main{display:grid;grid-template-columns:220px 1fr 240px;min-height:calc(100vh - 50px)}
+aside{border-right:1px solid var(--line);padding:10px;display:flex;flex-direction:column;gap:5px}
+aside.right{border-right:none;border-left:1px solid var(--line)}
+.hd{color:var(--dim);margin:4px 0 2px;font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+#cats{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+#cats button{text-align:left;padding:6px 8px}
+#center{padding:10px 14px;min-width:0}
+#wave{width:100%;height:150px;background:#101116;border-radius:8px;display:block;cursor:pointer}
+.bar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0}
+.info{color:var(--dim)}
+.tabs{display:flex;gap:4px;margin:10px 0 6px;align-items:center}
+.tabs button.cur{background:#353a4a;border-color:#6a7090}
+.tabs label{color:var(--dim);display:flex;gap:4px;align-items:center;margin-left:8px}
+.groups{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.grp{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.grp h4{margin:0 0 6px;font-size:12px;color:var(--accent);font-weight:600}
+.row{display:grid;grid-template-columns:92px 1fr 62px;gap:6px;align-items:center;margin:3px 0}
+.row span{color:var(--dim);font-size:12px}
+.row b{font-weight:normal;font-size:12px;text-align:right;font-variant-numeric:tabular-nums}
+.row input[type=range]{width:100%;accent-color:var(--accent)}
+.row select{width:100%}
+#hist{display:flex;flex-direction:column;gap:3px;overflow-y:auto;max-height:calc(100vh - 140px)}
+.hi{display:flex;gap:4px;align-items:center;padding:4px 6px;border-radius:6px;background:var(--panel);cursor:pointer;border:1px solid transparent}
+.hi:hover{border-color:var(--line)}
+.hi.cur{border-color:var(--accent)}
+.hi span{flex:1;overflow:hidden;text-overflow:ellipsis}
+.hi i{font-style:normal;color:var(--dim);font-size:11px}
+.hi .x{padding:0 5px;font-size:11px}
+#toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#2b2f3b;border:1px solid #4a5060;padding:8px 16px;border-radius:8px;display:none;z-index:50}
+@media (max-width:900px){main{grid-template-columns:1fr}aside{border:none}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">✦</div><b>Sound Forge SFX</b>
+  <span class="info">Pick a category, tweak, export. Space = play.</span>
+  <span class="spacer"></span>
+  <button id="openBtn" title="Open sound (.json)">📂</button><input type="file" id="fileIn" accept=".json" hidden>
+  <button id="saveBtn" title="Save sound parameters (.json)">💾</button>
+  <a href="index.html">Music →</a>
+</header>
+<main>
+  <aside>
+    <div class="hd">Generate</div>
+    <div id="cats"></div>
+    <div class="hd" style="margin-top:10px">Shape</div>
+    <button id="mutate">🎲 Mutate</button>
+    <button id="randomize">🌀 Totally random</button>
+  </aside>
+  <section id="center">
+    <canvas id="wave" title="Click to play"></canvas>
+    <div class="bar">
+      <button class="big" id="playBtn">▶ Play</button>
+      <button id="exportBtn">⬇ Export WAV</button>
+      <span style="width:10px"></span>
+      <button id="varBtn" title="Create slightly different versions (footsteps, hits, …)">✚ Variations</button>
+      <input type="number" id="varN" value="5" min="2" max="20" style="width:52px">
+      <button id="varExport">⬇ Export variations</button>
+      <span class="spacer"></span>
+      <label class="info"><input type="checkbox" id="auto" checked> play on change</label>
+      <span class="info" id="durInfo"></span>
+    </div>
+    <div class="tabs" id="tabs"></div>
+    <div class="groups" id="groups"></div>
+  </section>
+  <aside class="right">
+    <div class="hd">History</div>
+    <div id="hist"></div>
+  </aside>
+</main>
+<div id="toast"></div>
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const el = (tag, attrs = {}, ...kids) => {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class') e.className = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k, v);
+  }
+  for (const c of kids) if (c != null) e.append(c);
+  return e;
+};
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const R = (a, b) => a + Math.random() * (b - a);
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const clone = o => JSON.parse(JSON.stringify(o));
+function toast(msg, ms = 2000) { const t = $('#toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(toast.h); toast.h = setTimeout(() => t.style.display = 'none', ms); }
+
+// ---------- parameter model ----------
+// [key, label, min, max, unit, scale]  scale: 'log' | 'int' | undefined (linear)
+const WAVES = ['square', 'sawtooth', 'triangle', 'sine', 'noise', 'pink', 'brown'];
+const LAYER_SPEC = [
+  ['Source', [['wave', 'Wave', WAVES], ['gain', 'Level', 0, 1], ['delay', 'Start delay', 0, 1, 's']]],
+  ['Envelope', [['attack', 'Attack', 0, .5, 's'], ['sustain', 'Sustain', 0, 1.5, 's'], ['punch', 'Punch', 0, 1], ['decay', 'Decay', .005, 2, 's']]],
+  ['Pitch', [['freq', 'Frequency', 20, 5000, 'Hz', 'log'], ['pitchEnd', 'Slide', -48, 48, 'st'], ['slideCurve', 'Slide curve', .2, 5, '', 'log'], ['arp', 'Jump', -24, 24, 'st', 'int'], ['arpTime', 'Jump at', 0, 1, '%'], ['repeat', 'Repeat', 0, .5, 's']]],
+  ['Modulation', [['vibDepth', 'Vibrato depth', 0, 12, 'st'], ['vibSpeed', 'Vibrato speed', 0, 40, 'Hz'], ['fmRatio', 'FM ratio', .25, 8, '', 'log'], ['fmDepth', 'FM depth', 0, 10]]],
+  ['Filter', [['lpf', 'Lowpass', 100, 20000, 'Hz', 'log'], ['lpfEnd', 'Lowpass end', 100, 20000, 'Hz', 'log'], ['res', 'Resonance', 0, 20], ['hpf', 'Highpass', 20, 8000, 'Hz', 'log']]],
+];
+const FX_SPEC = ['Output', [['volume', 'Volume', 0, 1], ['drive', 'Drive', 0, 1], ['bits', 'Bit depth', 2, 16, 'bit', 'int'], ['downsample', 'Downsample', 1, 16, '×', 'int'], ['reverb', 'Reverb', 0, 1], ['echo', 'Echo', 0, 1], ['echoTime', 'Echo time', .03, .6, 's']]];
+const LAYER0 = { on: true, wave: 'square', gain: 1, delay: 0, attack: 0, sustain: .1, punch: 0, decay: .3, freq: 440, pitchEnd: 0, slideCurve: 1, arp: 0, arpTime: 0, repeat: 0, vibDepth: 0, vibSpeed: 0, fmRatio: 1, fmDepth: 0, lpf: 20000, lpfEnd: 20000, res: 0, hpf: 20 };
+const FX0 = { volume: .8, drive: 0, bits: 16, downsample: 1, reverb: 0, echo: 0, echoTime: .15 };
+const L = o => ({ ...LAYER0, ...o });
+const S = (name, layers, fx = {}) => ({ name, layers, fx: { ...FX0, ...fx } });
+
+// ---------- category generators ----------
+const GEN = {
+  'Pickup': () => S('pickup', [L({ wave: pick(['square', 'sine', 'triangle']), freq: R(600, 1300), sustain: R(.02, .08), punch: R(.2, .6), decay: R(.15, .35), arp: pick([5, 7, 12]), arpTime: R(.2, .45) })]),
+  'Laser': () => S('laser', [L({ wave: pick(['square', 'sawtooth', 'sine']), freq: R(700, 2200), pitchEnd: R(-30, -10), slideCurve: R(.3, .8), sustain: R(.03, .1), decay: R(.1, .25), fmRatio: R(.5, 3), fmDepth: Math.random() < .4 ? R(1, 4) : 0, hpf: R(100, 400) })], { echo: Math.random() < .3 ? .3 : 0 }),
+  'Explosion': () => S('explosion', [
+    L({ wave: pick(['noise', 'brown']), freq: R(300, 900), pitchEnd: R(-18, -6), punch: R(.4, .8), sustain: R(.05, .2), decay: R(.6, 1.4), lpf: R(2500, 6000), lpfEnd: R(150, 400) }),
+    L({ wave: 'sine', freq: R(70, 110), pitchEnd: R(-18, -10), slideCurve: .5, sustain: R(.05, .15), decay: R(.5, 1), gain: .9 })], { drive: R(.2, .5), reverb: R(.15, .35) }),
+  'Hit / Hurt': () => S('hit', [
+    L({ wave: 'noise', freq: R(500, 1500), sustain: .01, decay: R(.06, .15), lpf: R(2000, 6000), lpfEnd: 800 }),
+    L({ wave: pick(['square', 'sawtooth']), freq: R(150, 400), pitchEnd: R(-14, -5), sustain: .02, decay: R(.1, .2), gain: .7 })], { drive: R(.2, .5) }),
+  'Jump': () => S('jump', [L({ wave: pick(['square', 'triangle']), freq: R(200, 420), pitchEnd: R(7, 16), slideCurve: R(.4, .8), sustain: R(.02, .08), decay: R(.12, .25), hpf: R(60, 200) })]),
+  'Blip / UI': () => S('blip', [L({ wave: pick(['sine', 'square', 'triangle']), freq: R(700, 1800), sustain: R(.01, .04), decay: R(.03, .09), arp: Math.random() < .4 ? pick([7, 12, -5]) : 0, arpTime: .5 })], { volume: .6 }),
+  'Footstep': () => S('footstep', [
+    L({ wave: pick(['noise', 'pink', 'brown']), freq: R(300, 1200), sustain: .005, decay: R(.05, .11), lpf: R(900, 2500), lpfEnd: R(300, 800), hpf: R(80, 200) }),
+    L({ wave: 'sine', freq: R(90, 140), pitchEnd: -7, sustain: 0, decay: R(.04, .08), gain: .6 })], { volume: .7 }),
+  'Swoosh': () => S('swoosh', [L({ wave: pick(['pink', 'noise']), freq: R(600, 1500), pitchEnd: R(-6, 6), attack: R(.08, .2), sustain: R(.02, .1), decay: R(.15, .35), lpf: R(400, 900), lpfEnd: R(3000, 7000), res: R(2, 8), hpf: R(200, 500) })]),
+  'Powerup': () => S('powerup', [L({ wave: pick(['square', 'triangle', 'sawtooth']), freq: R(250, 550), pitchEnd: R(12, 26), slideCurve: R(.8, 1.5), sustain: R(.2, .4), decay: R(.2, .4), vibDepth: R(0, .6), vibSpeed: R(5, 12), repeat: Math.random() < .5 ? R(.06, .12) : 0, lpf: 8000 })], { echo: R(0, .3) }),
+  'Magic / Heal': () => S('magic', [
+    L({ wave: pick(['triangle', 'sine']), freq: R(500, 900), pitchEnd: R(5, 14), attack: R(.02, .1), sustain: R(.2, .4), decay: R(.4, .8), vibDepth: R(.2, .8), vibSpeed: R(5, 9), arp: pick([7, 12]), arpTime: R(.2, .4) }),
+    L({ wave: 'sine', freq: R(1500, 3000), repeat: R(.04, .08), attack: .05, sustain: .3, decay: .4, gain: .3, pitchEnd: R(-3, 3) })], { reverb: R(.4, .7), echo: R(.2, .4), echoTime: R(.1, .2) }),
+  'Death': () => S('death', [L({ wave: pick(['sawtooth', 'square']), freq: R(300, 600), pitchEnd: R(-36, -20), slideCurve: R(.8, 1.6), sustain: R(.2, .5), decay: R(.5, 1), vibDepth: R(.5, 2), vibSpeed: R(6, 14), lpf: 4000, lpfEnd: 300 })], { reverb: R(.2, .4) }),
+  'Alarm': () => S('alarm', [L({ wave: pick(['square', 'sawtooth']), freq: R(500, 900), sustain: R(.6, 1.2), decay: .1, vibDepth: R(3, 7), vibSpeed: R(2, 7), lpf: 4000 })], { volume: .6 }),
+  'Creature growl': () => S('growl', [
+    L({ wave: 'sawtooth', freq: R(55, 120), pitchEnd: R(-7, 3), attack: R(.03, .1), sustain: R(.2, .5), decay: R(.2, .4), fmRatio: R(.5, 1.5), fmDepth: R(2, 6), vibDepth: R(.5, 2), vibSpeed: R(8, 18), lpf: R(600, 1400), lpfEnd: R(300, 700), res: R(2, 6) }),
+    L({ wave: 'brown', freq: R(200, 500), attack: .05, sustain: .3, decay: .3, gain: .4, lpf: 800 })], { drive: R(.3, .6) }),
+  'Critter chirp': () => S('chirp', [L({ wave: pick(['sine', 'triangle']), freq: R(1800, 4200), pitchEnd: R(-10, 12), slideCurve: R(.4, 2), sustain: R(.02, .06), decay: R(.05, .12), repeat: Math.random() < .6 ? R(.05, .1) : 0, vibDepth: R(0, 2), vibSpeed: R(20, 40) })], { volume: .6 }),
+  'DNA splice': () => S('splice', [
+    L({ wave: 'sine', freq: R(180, 320), pitchEnd: R(18, 30), slideCurve: R(1.2, 2.5), attack: .05, sustain: R(.4, .7), decay: R(.3, .6), fmRatio: pick([1.5, 2, 3.5]), fmDepth: R(1, 4), vibDepth: R(.3, 1), vibSpeed: R(6, 12) }),
+    L({ wave: 'sine', freq: R(600, 1200), repeat: R(.05, .09), pitchEnd: R(6, 14), slideCurve: .5, sustain: .5, decay: .3, gain: .35 }),
+    L({ wave: 'pink', freq: 800, attack: .3, sustain: .3, decay: .4, gain: .25, lpf: 500, lpfEnd: 4000, res: 6 })], { reverb: R(.4, .6), echo: .2 }),
+  'Coin / Gem': () => S('coin', [L({ wave: 'square', freq: R(900, 1500), sustain: .03, punch: .5, decay: R(.25, .45), arp: pick([4, 5, 7]), arpTime: R(.08, .15), lpf: 9000 })], { echo: R(0, .25), echoTime: .08 }),
+};
+
+// ---------- synthesis (OfflineAudioContext + JS post-processing) ----------
+const SR = 44100;
+function noiseBuffer(ctx, kind) {
+  const b = ctx.createBuffer(1, SR * 2, SR), d = b.getChannelData(0);
+  let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, last = 0;
+  for (let i = 0; i < d.length; i++) {
+    const w = Math.random() * 2 - 1;
+    if (kind === 'pink') { // Paul Kellet's filter
+      b0 = .99886 * b0 + w * .0555179; b1 = .99332 * b1 + w * .0750759; b2 = .969 * b2 + w * .153852;
+      b3 = .8665 * b3 + w * .3104856; b4 = .55 * b4 + w * .5329522; b5 = -.7616 * b5 - w * .016898;
+      d[i] = (b0 + b1 + b2 + b3 + b4 + b5 + w * .5362) * .11;
+    } else if (kind === 'brown') { last = (last + .02 * w) / 1.02; d[i] = last * 3.5; }
+    else d[i] = w;
+  }
+  return b;
+}
+const layerLen = l => l.attack + l.sustain + l.decay;
+function soundLen(s) {
+  let len = 0; for (const l of s.layers) if (l.on) len = Math.max(len, l.delay + layerLen(l));
+  return len + (s.fx.reverb > 0 ? 1.5 : 0) + (s.fx.echo > 0 ? s.fx.echoTime * 6 : 0) + .05;
+}
+function buildLayer(ctx, l, dest) {
+  const t0 = l.delay + .001, len = Math.max(.01, layerLen(l)), N = Math.max(2, Math.ceil(len * 800));
+  const fc = new Float32Array(N), gc = new Float32Array(N), lc = new Float32Array(N);
+  const per = l.repeat > 0 ? l.repeat : len;
+  for (let i = 0; i < N; i++) {
+    const t = i / (N - 1) * len, tr = l.repeat > 0 ? t % l.repeat : t, prog = clamp(tr / per, 0, 1);
+    let semi = l.pitchEnd * Math.pow(prog, l.slideCurve);
+    if (l.arpTime > 0 && prog >= l.arpTime) semi += l.arp;
+    semi += l.vibDepth * Math.sin(2 * Math.PI * l.vibSpeed * t);
+    fc[i] = clamp(l.freq * Math.pow(2, semi / 12), 10, 20000);
+    let e;
+    if (t < l.attack) e = t / l.attack;
+    else if (t < l.attack + l.sustain) e = 1 + l.punch * (1 - (t - l.attack) / l.sustain);
+    else e = Math.pow(Math.max(0, 1 - (t - l.attack - l.sustain) / Math.max(.005, l.decay)), 2);
+    gc[i] = e * l.gain / (1 + l.punch);
+    lc[i] = clamp(l.lpf * Math.pow(l.lpfEnd / l.lpf, t / len), 30, 20000);
+  }
+  gc[N - 1] = 0;
+  let src;
+  if (['noise', 'pink', 'brown'].includes(l.wave)) {
+    src = ctx.createBufferSource(); src.buffer = noiseBuffer(ctx, l.wave); src.loop = true;
+    src.playbackRate.setValueCurveAtTime(fc.map(f => clamp(f / 1000, .05, 8)), t0, len); // noise "pitch" = playback speed
+  } else {
+    src = ctx.createOscillator(); src.type = l.wave;
+    src.frequency.setValueCurveAtTime(fc, t0, len);
+    if (l.fmDepth > 0) {
+      const m = ctx.createOscillator(), mg = ctx.createGain();
+      m.frequency.setValueCurveAtTime(fc.map(f => f * l.fmRatio), t0, len);
+      mg.gain.setValueCurveAtTime(fc.map(f => f * l.fmRatio * l.fmDepth), t0, len);
+      m.connect(mg); mg.connect(src.frequency); m.start(t0); m.stop(t0 + len + .02);
+    }
+  }
+  const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = l.hpf;
+  const lp = ctx.createBiquadFilter(); lp.Q.value = l.res; lp.frequency.setValueCurveAtTime(lc, t0, len);
+  const g = ctx.createGain(); g.gain.value = 0; g.gain.setValueCurveAtTime(gc, t0, len);
+  src.connect(hp); hp.connect(lp); lp.connect(g); g.connect(dest);
+  src.start(t0); src.stop(t0 + len + .02);
+}
+async function renderSound(s) {
+  const len = soundLen(s), ctx = new OfflineAudioContext(1, Math.ceil(len * SR), SR);
+  const bus = ctx.createGain(); bus.connect(ctx.destination);
+  if (s.fx.reverb > 0) {
+    const cv = ctx.createConvolver(), n = SR * 1.5, ir = ctx.createBuffer(1, n, SR), d = ir.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 4);
+    cv.buffer = ir; const sg = ctx.createGain(); sg.gain.value = s.fx.reverb * .6;
+    bus.connect(sg); sg.connect(cv); cv.connect(ctx.destination);
+  }
+  if (s.fx.echo > 0) {
+    const dl = ctx.createDelay(1), fb = ctx.createGain(), sg = ctx.createGain();
+    dl.delayTime.value = s.fx.echoTime; fb.gain.value = .45; sg.gain.value = s.fx.echo;
+    bus.connect(sg); sg.connect(dl); dl.connect(fb); fb.connect(dl); dl.connect(ctx.destination);
+  }
+  for (const l of s.layers) if (l.on) buildLayer(ctx, l, bus);
+  const d = (await ctx.startRendering()).getChannelData(0);
+  // post: drive, bitcrush, downsample, normalize, trim
+  const fx = s.fx;
+  if (fx.drive > 0) { const k = 1 + fx.drive * 10, n = Math.tanh(k); for (let i = 0; i < d.length; i++) d[i] = Math.tanh(d[i] * k) / n; }
+  if (fx.downsample > 1) { const n = Math.round(fx.downsample); for (let i = 0; i < d.length; i++) d[i] = d[i - (i % n)]; }
+  let peak = 0; for (let i = 0; i < d.length; i++) peak = Math.max(peak, Math.abs(d[i]));
+  const gain = peak > 0 ? .95 / peak * fx.volume : 0;
+  const q = fx.bits < 16 ? Math.pow(2, Math.round(fx.bits) - 1) : 0;
+  let end = 0;
+  for (let i = 0; i < d.length; i++) { let x = d[i] * gain; if (q) x = Math.round(x * q) / q; d[i] = x; if (Math.abs(x) > .001) end = i; }
+  const out = d.slice(0, Math.min(d.length, end + Math.round(SR * .01)));
+  const fade = Math.min(out.length, Math.round(SR * .005));
+  for (let i = 0; i < fade; i++) out[out.length - 1 - i] *= i / fade;
+  return out;
+}
+function wavBlob(d) {
+  const ab = new ArrayBuffer(44 + d.length * 2), v = new DataView(ab);
+  const ws = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  ws(0, 'RIFF'); v.setUint32(4, 36 + d.length * 2, true); ws(8, 'WAVE'); ws(12, 'fmt ');
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, SR, true);
+  v.setUint32(28, SR * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  ws(36, 'data'); v.setUint32(40, d.length * 2, true);
+  for (let i = 0; i < d.length; i++) { const x = clamp(d[i], -1, 1); v.setInt16(44 + i * 2, x < 0 ? x * 0x8000 : x * 0x7fff, true); }
+  return new Blob([ab], { type: 'audio/wav' });
+}
+function download(blob, name) { const a = el('a', { href: URL.createObjectURL(blob), download: name }); document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
+
+// ---------- state ----------
+let snd = null, samples = null, layerIdx = 0, hist = [], histCur = -1, AC = null, playing = null;
+const counters = {};
+const nextName = base => { counters[base] = (counters[base] || 0) + 1; return base + '_' + String(counters[base]).padStart(2, '0'); };
+
+function play() {
+  if (!samples || !samples.length) return;
+  if (!AC) AC = new AudioContext({ sampleRate: SR });
+  if (AC.state === 'suspended') AC.resume();
+  if (playing) try { playing.stop(); } catch (e) { }
+  const b = AC.createBuffer(1, samples.length, SR); b.copyToChannel(samples, 0);
+  playing = AC.createBufferSource(); playing.buffer = b; playing.connect(AC.destination); playing.start();
+}
+let renderSeq = 0;
+async function update(andPlay) {
+  const my = ++renderSeq, s = clone(snd);
+  const out = await renderSound(s);
+  if (my !== renderSeq) return; // a newer render superseded this one
+  samples = out; drawWave();
+  $('#durInfo').textContent = (samples.length / SR).toFixed(2) + ' s';
+  if (andPlay) play();
+}
+function addHistory(s) {
+  hist.unshift(clone(s)); if (hist.length > 60) hist.pop();
+  histCur = 0; renderHist();
+}
+function setSound(s, toHistory = true) {
+  snd = s; layerIdx = 0;
+  if (toHistory) addHistory(s);
+  renderParams(); update($('#auto').checked);
+}
+function mutated(s, amt) {
+  const m = clone(s);
+  const jitter = (obj, specs) => { for (const [k, , min, max, , sc] of specs) {
+    if (Array.isArray(min) || Math.random() > .6) continue;
+    let v = obj[k];
+    if (sc === 'log') v = v * Math.pow(max / min, (Math.random() * 2 - 1) * amt * .5);
+    else v = v + (max - min) * (Math.random() * 2 - 1) * amt * .5;
+    if (sc === 'int') v = Math.round(v);
+    obj[k] = clamp(v, min, max);
+  } };
+  for (const l of m.layers) for (const [, specs] of LAYER_SPEC) jitter(l, specs.filter(p => !['gain', 'delay', 'arp'].includes(p[0])));
+  jitter(m.fx, FX_SPEC[1].filter(p => !['volume', 'bits', 'downsample'].includes(p[0])));
+  m.name = s.name;
+  return m;
+}
+function randomSound() {
+  const n = pick([1, 1, 2, 2, 3]), layers = [];
+  for (let i = 0; i < n; i++) {
+    const l = { ...LAYER0, on: true };
+    for (const [, specs] of LAYER_SPEC) for (const [k, , min, max, , sc] of specs) {
+      if (Array.isArray(min)) { l[k] = pick(min); continue; }
+      l[k] = sc === 'log' ? min * Math.pow(max / min, Math.random()) : R(min, max);
+      if (sc === 'int') l[k] = Math.round(l[k]);
+    }
+    Object.assign(l, { gain: i ? R(.3, .8) : 1, delay: i ? R(0, .15) : 0, sustain: R(0, .4), decay: R(.05, .8), lpfEnd: Math.random() < .5 ? l.lpf : l.lpfEnd, hpf: Math.min(l.hpf, 400), arpTime: Math.random() < .3 ? l.arpTime : 0, repeat: Math.random() < .2 ? l.repeat : 0, fmDepth: Math.random() < .3 ? l.fmDepth : 0, vibDepth: Math.random() < .3 ? l.vibDepth : 0 });
+    layers.push(l);
+  }
+  return S('random', layers, { drive: Math.random() < .3 ? R(0, .6) : 0, reverb: Math.random() < .3 ? R(0, .5) : 0, echo: Math.random() < .2 ? R(0, .4) : 0, bits: Math.random() < .15 ? Math.round(R(4, 10)) : 16 });
+}
+
+// ---------- UI ----------
+function fmt(v, unit, sc) {
+  if (sc === 'int') return v + (unit ? ' ' + unit : '');
+  if (unit === '%') return Math.round(v * 100) + '%';
+  if (unit === 'Hz') return v >= 1000 ? (v / 1000).toFixed(1) + 'k' : Math.round(v) + '';
+  return (Math.abs(v) >= 10 ? v.toFixed(0) : v.toFixed(2)) + (unit ? ' ' + unit : '');
+}
+const toSlider = (v, min, max, sc) => sc === 'log' ? Math.log(v / min) / Math.log(max / min) * 1000 : (v - min) / (max - min) * 1000;
+const fromSlider = (x, min, max, sc) => { const v = sc === 'log' ? min * Math.pow(max / min, x / 1000) : min + (max - min) * x / 1000; return sc === 'int' ? Math.round(v) : v; };
+function paramRow(obj, [k, label, min, max, unit, sc]) {
+  if (Array.isArray(min)) {
+    const s = el('select', { onchange: e => { obj[k] = e.target.value; update($('#auto').checked); } });
+    for (const w of min) s.append(el('option', {}, w));
+    s.value = obj[k];
+    return el('div', { class: 'row' }, el('span', {}, label), s, el('b', {}));
+  }
+  const out = el('b', {}, fmt(obj[k], unit, sc));
+  const r = el('input', { type: 'range', min: 0, max: 1000,
+    oninput: e => { obj[k] = fromSlider(+e.target.value, min, max, sc); out.textContent = fmt(obj[k], unit, sc); update(false); },
+    onchange: () => { if ($('#auto').checked) update(true); } });
+  r.value = toSlider(obj[k], min, max, sc);
+  r.addEventListener('dblclick', () => { const d = k in LAYER0 && obj !== snd.fx ? LAYER0[k] : FX0[k]; obj[k] = d; renderParams(); update($('#auto').checked); });
+  return el('div', { class: 'row', title: 'Double-click slider to reset' }, el('span', {}, label), r, out);
+}
+function renderParams() {
+  const tabs = $('#tabs'); tabs.innerHTML = '';
+  snd.layers.forEach((l, i) => tabs.append(el('button', { class: i === layerIdx ? 'cur' : '', onclick: () => { layerIdx = i; renderParams(); } }, (l.on ? '' : '◌ ') + 'Layer ' + (i + 1))));
+  if (snd.layers.length < 4) tabs.append(el('button', { title: 'Add layer', onclick: () => { snd.layers.push(L({ gain: .6 })); layerIdx = snd.layers.length - 1; renderParams(); update(false); } }, '+'));
+  const l = snd.layers[layerIdx];
+  const on = el('input', { type: 'checkbox', onchange: e => { l.on = e.target.checked; renderParams(); update($('#auto').checked); } }); on.checked = l.on;
+  tabs.append(el('label', {}, on, 'enabled'));
+  if (snd.layers.length > 1) tabs.append(el('button', { onclick: () => { snd.layers.splice(layerIdx, 1); layerIdx = 0; renderParams(); update($('#auto').checked); } }, 'Remove layer'));
+  tabs.append(el('span', { class: 'spacer' }), el('span', { class: 'info' }, 'sound: ' + snd.name));
+  const g = $('#groups'); g.innerHTML = '';
+  for (const [title, specs] of LAYER_SPEC) g.append(el('div', { class: 'grp' }, el('h4', {}, title), ...specs.map(p => paramRow(l, p))));
+  g.append(el('div', { class: 'grp' }, el('h4', {}, FX_SPEC[0] + ' (all layers)'), ...FX_SPEC[1].map(p => paramRow(snd.fx, p))));
+}
+function renderHist() {
+  const h = $('#hist'); h.innerHTML = '';
+  hist.forEach((s, i) => h.append(el('div', { class: 'hi' + (i === histCur ? ' cur' : ''), onclick: () => { histCur = i; renderHist(); setSound(clone(s), false); } },
+    el('span', {}, s.name), el('i', {}, s.layers.length + 'L'),
+    el('button', { class: 'x', title: 'Export WAV', onclick: async e => { e.stopPropagation(); download(wavBlob(await renderSound(s)), s.name + '.wav'); } }, '⬇'),
+    el('button', { class: 'x', title: 'Remove', onclick: e => { e.stopPropagation(); hist.splice(i, 1); if (histCur >= hist.length) histCur = hist.length - 1; renderHist(); } }, '✕'))));
+}
+function drawWave() {
+  const cv = $('#wave'), r = cv.getBoundingClientRect(), dpr = devicePixelRatio || 1;
+  cv.width = r.width * dpr; cv.height = r.height * dpr;
+  const c = cv.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const w = r.width, h = r.height, mid = h / 2;
+  c.fillStyle = '#101116'; c.fillRect(0, 0, w, h);
+  c.fillStyle = '#22252e'; c.fillRect(0, mid, w, 1);
+  if (!samples || !samples.length) return;
+  c.fillStyle = '#8ef0c8';
+  const per = samples.length / w;
+  for (let x = 0; x < w; x++) {
+    let mn = 1, mx = -1;
+    const a = Math.floor(x * per), b = Math.min(samples.length, Math.floor((x + 1) * per) + 1);
+    for (let i = a; i < b; i++) { const v = samples[i]; if (v < mn) mn = v; if (v > mx) mx = v; }
+    if (mx < mn) continue;
+    c.fillRect(x, mid - mx * mid * .95, 1, Math.max(1, (mx - mn) * mid * .95));
+  }
+}
+
+const cats = $('#cats');
+for (const [name, gen] of Object.entries(GEN)) cats.append(el('button', { onclick: () => { const s = gen(); s.name = nextName(s.name); setSound(s); } }, name));
+$('#mutate').onclick = () => { const s = mutated(snd, .5); s.name = nextName(snd.name.replace(/_\d+$/, '')); setSound(s); };
+$('#randomize').onclick = () => { const s = randomSound(); s.name = nextName('random'); setSound(s); };
+$('#playBtn').onclick = play;
+$('#wave').onclick = play;
+$('#exportBtn').onclick = () => { if (samples) download(wavBlob(samples), snd.name + '.wav'); };
+const makeVariations = () => { const n = clamp(+$('#varN').value || 5, 2, 20), base = snd.name.replace(/_\d+$/, ''); return Array.from({ length: n }, (_, i) => { const m = mutated(snd, .18); m.name = base + '_var' + String(i + 1).padStart(2, '0'); return m; }); };
+$('#varBtn').onclick = () => { for (const v of makeVariations().reverse()) addHistory(v); toast('Variations added to history'); };
+$('#varExport').onclick = async () => {
+  const vs = makeVariations();
+  for (const v of vs) { download(wavBlob(await renderSound(v)), v.name + '.wav'); await new Promise(r => setTimeout(r, 250)); }
+  toast(vs.length + ' WAV files exported');
+};
+$('#saveBtn').onclick = () => download(new Blob([JSON.stringify(snd, null, 1)], { type: 'application/json' }), snd.name + '.sfx.json');
+$('#openBtn').onclick = () => $('#fileIn').click();
+$('#fileIn').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try { const s = JSON.parse(await f.text()); if (!Array.isArray(s.layers)) throw new Error('no layers'); s.layers = s.layers.map(l => ({ ...LAYER0, ...l })); s.fx = { ...FX0, ...s.fx }; setSound(s); }
+  catch (err) { toast('Could not open: ' + err.message, 4000); }
+  e.target.value = '';
+};
+addEventListener('keydown', e => { if (e.code === 'Space' && !['INPUT', 'SELECT'].includes(e.target.tagName)) { e.preventDefault(); play(); } });
+addEventListener('resize', drawWave);
+
+setSound((() => { const s = GEN['Pickup'](); s.name = nextName('pickup'); return s; })());
+</script>
+</body>
+</html>

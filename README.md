@@ -27,3 +27,18 @@ Open `index.html` in Chrome/Edge/Firefox. That's it.
 - **Export**: Song → WAV, **Section loop → WAV (seamless**, renders two passes and keeps the second
   so reverb tails wrap — loops cleanly in a game engine), Song → MIDI, project save/load as JSON.
 - Space = play/pause, Ctrl+Z = undo, autosave to localStorage.
+
+## SFX generator (`sfx.html`)
+
+sfxr-style sound-effect generator, but layered (up to 4 layers per sound, e.g. noise burst + sub drop
+for an explosion). Rendered offline, so what you hear is exactly what gets exported.
+
+- **16 categories**: Pickup, Coin/Gem, Laser, Explosion, Hit/Hurt, Jump, Blip/UI, Footstep, Swoosh,
+  Powerup, Magic/Heal, Death, Alarm, Creature growl, Critter chirp, DNA splice. Each click = new random take.
+- **Per layer**: wave (square/saw/triangle/sine/white/pink/brown noise), level, start delay,
+  attack/sustain/punch/decay, frequency + slide (amount & curve), pitch jump (arpeggio), repeat,
+  vibrato, FM (ratio/depth), lowpass sweep + resonance, highpass.
+- **Output**: volume, drive, bitcrush, downsample, reverb, echo. Auto-normalized, silence trimmed.
+- **Mutate** (bigger change), **Totally random**, **Variations** (N subtle versions — footsteps, hits)
+  with batch WAV export. History of every take; save/load sounds as JSON.
+- Export: mono 16-bit 44.1 kHz WAV.
